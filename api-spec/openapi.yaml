@@ -1,0 +1,685 @@
+openapi: 3.0.3
+info:
+  title: Customer Service Request API
+  version: 1.0.0
+
+tags:
+  - name: Service Requests
+    description: Create, browse and progress customer service requests.
+
+paths:
+  /requests:
+    get:
+      tags: [Service Requests]
+      summary: List service requests
+      description: |
+        Returns a paginated, filterable and sortable collection of service requests.
+        All query parameters are optional and can be combined; unknown parameters
+        must be ignored by the client and are rejected with `400` by the API.
+      operationId: listServiceRequests
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Priority'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated service-request list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestPage'
+              examples:
+                populated:
+                  summary: First page with results
+                  value:
+                    items:
+                      - id: REQ-1001
+                        title: Unable to access customer portal
+                        description: The customer receives "Account locked" after signing in with valid credentials.
+                        category: Access
+                        priority: HIGH
+                        status: OPEN
+                        requesterName: Example Customer
+                        requesterEmail: customer@example.com
+                        createdAt: '2026-02-10T08:15:00Z'
+                        updatedAt: '2026-02-10T08:15:00Z'
+                        version: 1
+                      - id: REQ-1002
+                        title: Duplicate invoice on February statement
+                        description: Invoice INV-88213 appears twice on the February billing statement.
+                        category: Billing
+                        priority: MEDIUM
+                        status: IN_PROGRESS
+                        requesterName: Second Customer
+                        requesterEmail: second.customer@example.com
+                        createdAt: '2026-02-09T13:42:11Z'
+                        updatedAt: '2026-02-11T09:05:30Z'
+                        version: 4
+                    page: 1
+                    pageSize: 10
+                    total: 42
+                    totalPages: 5
+                empty:
+                  summary: No request matches the active filters
+                  value:
+                    items: []
+                    page: 1
+                    pageSize: 10
+                    total: 0
+                    totalPages: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Service Requests]
+      summary: Create a service request
+      description: |
+        Creates a new request. The server assigns `id`, `status` (always `OPEN`),
+        `createdAt`, `updatedAt` and `version` - these must not be sent by the client.
+      operationId: createServiceRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceRequest'
+            examples:
+              minimal:
+                summary: Typical submission
+                value:
+                  title: Unable to access customer portal
+                  description: The customer receives "Account locked" after signing in with valid credentials.
+                  category: Access
+                  priority: HIGH
+                  requesterName: Example Customer
+                  requesterEmail: customer@example.com
+              critical:
+                summary: Critical outage report
+                value:
+                  title: Self-service app is down for all users
+                  description: Every sign-in attempt returns HTTP 503 since 06:00 UTC across web and mobile.
+                  category: Outage
+                  priority: CRITICAL
+                  requesterName: Operations Desk
+                  requesterEmail: ops.desk@example.com
+      responses:
+        '201':
+          description: Service request created
+          headers:
+            Location:
+              description: URL of the created request
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+                example: /api/requests/REQ-1001
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+              example:
+                id: REQ-1001
+                title: Unable to access customer portal
+                description: The customer receives "Account locked" after signing in with valid credentials.
+                category: Access
+                priority: HIGH
+                status: OPEN
+                requesterName: Example Customer
+                requesterEmail: customer@example.com
+                createdAt: '2026-02-10T08:15:00Z'
+                updatedAt: '2026-02-10T08:15:00Z'
+                version: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    get:
+      tags: [Service Requests]
+      summary: Get a service request by ID
+      operationId: getServiceRequest
+      responses:
+        '200':
+          description: Service-request details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+              example:
+                id: REQ-1002
+                title: Duplicate invoice on February statement
+                description: Invoice INV-88213 appears twice on the February billing statement.
+                category: Billing
+                priority: MEDIUM
+                status: IN_PROGRESS
+                requesterName: Second Customer
+                requesterEmail: second.customer@example.com
+                createdAt: '2026-02-09T13:42:11Z'
+                updatedAt: '2026-02-11T09:05:30Z'
+                version: 4
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /requests/{requestId}/status:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    patch:
+      tags: [Service Requests]
+      summary: Update the status of a service request
+      description: |
+        Moves a request to a new status. The client must echo the `version` it last
+        read; a mismatch means somebody else changed the record and the API answers
+        `409`. On success the returned resource carries an incremented `version`.
+
+        Allowed transitions:
+
+        | From          | To                          |
+        |---------------|-----------------------------|
+        | `OPEN`        | `IN_PROGRESS`, `CLOSED`     |
+        | `IN_PROGRESS` | `RESOLVED`, `OPEN`          |
+        | `RESOLVED`    | `CLOSED`, `IN_PROGRESS`     |
+        | `CLOSED`      | *(terminal)*                |
+
+        An invalid transition is rejected with `422`.
+      operationId: updateServiceRequestStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateServiceRequestStatus'
+            examples:
+              startWork:
+                summary: Take an open request into progress
+                value:
+                  status: IN_PROGRESS
+                  version: 3
+              resolve:
+                summary: Resolve a request with a note
+                value:
+                  status: RESOLVED
+                  version: 4
+                  note: Password reset and portal access confirmed with the customer.
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequest'
+              example:
+                id: REQ-1002
+                title: Duplicate invoice on February statement
+                description: Invoice INV-88213 appears twice on the February billing statement.
+                category: Billing
+                priority: MEDIUM
+                status: RESOLVED
+                requesterName: Second Customer
+                requesterEmail: second.customer@example.com
+                createdAt: '2026-02-09T13:42:11Z'
+                updatedAt: '2026-02-12T07:20:44Z'
+                version: 5
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The request was modified by another operation
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: https://api.example.test/problems/version-conflict
+                title: Update conflict
+                status: 409
+                detail: The request was updated by someone else. Refresh and try again.
+                instance: /api/requests/REQ-1002/status
+                traceId: 60bb7a8342ac
+        '422':
+          description: The requested status transition is not allowed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+              example:
+                type: https://api.example.test/problems/validation-error
+                title: Invalid status transition
+                status: 422
+                detail: A CLOSED request cannot be reopened.
+                instance: /api/requests/REQ-1002/status
+                traceId: 9c1d5f7740b2
+                errors:
+                  status:
+                    - Transition from CLOSED to IN_PROGRESS is not allowed.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      description: Unique service-request identifier
+      schema:
+        type: string
+        pattern: '^REQ-[0-9]{4,}$'
+      example: REQ-1001
+    Search:
+      name: search
+      in: query
+      description: Case-insensitive substring match against title or requester name
+      required: false
+      schema:
+        type: string
+        maxLength: 100
+      example: portal
+    Status:
+      name: status
+      in: query
+      description: Filter by status. Omit for all statuses.
+      required: false
+      schema:
+        $ref: '#/components/schemas/ServiceRequestStatus'
+      example: OPEN
+    Priority:
+      name: priority
+      in: query
+      description: Filter by priority. Omit for all priorities.
+      required: false
+      schema:
+        $ref: '#/components/schemas/ServiceRequestPriority'
+      example: HIGH
+    Sort:
+      name: sort
+      in: query
+      description: |
+        Sort expression. Prefix a field with a minus sign for descending order,
+        e.g. `-createdAt` returns the newest requests first.
+      required: false
+      schema:
+        type: string
+        enum: [createdAt, -createdAt, updatedAt, -updatedAt, priority, -priority]
+        default: -createdAt
+      example: -createdAt
+    Page:
+      name: page
+      in: query
+      description: One-based page number
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+      example: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: Number of records per page
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 10
+      example: 10
+
+  responses:
+    BadRequest:
+      description: The request is malformed or a query parameter is invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://api.example.test/problems/bad-request
+            title: Invalid request
+            status: 400
+            detail: "Query parameter 'pageSize' must be between 1 and 100."
+            instance: /api/requests
+            traceId: 1a2b3c4d5e6f
+    Unauthorized:
+      description: Authentication is missing, invalid, or expired
+      headers:
+        WWW-Authenticate:
+          description: Challenge describing the expected credentials
+          schema:
+            type: string
+            example: Bearer realm="service-requests", error="invalid_token"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://api.example.test/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: The access token is missing or has expired. Sign in again.
+            instance: /api/requests
+            traceId: 4f8c2e20dabc
+    Forbidden:
+      description: The token is valid but lacks the scope required for this operation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://api.example.test/problems/forbidden
+            title: Forbidden
+            status: 403
+            detail: Scope 'service-requests.write' is required.
+            instance: /api/requests
+            traceId: 7d0e91ab33f5
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://api.example.test/problems/not-found
+            title: Service request not found
+            status: 404
+            detail: No service request exists with id REQ-9999.
+            instance: /api/requests/REQ-9999
+            traceId: b2c4de6f8091
+    ValidationError:
+      description: One or more fields failed validation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblemDetails'
+          example:
+            type: https://api.example.test/problems/validation-error
+            title: Validation failed
+            status: 422
+            detail: The submitted service request contains invalid fields.
+            instance: /api/requests
+            traceId: 3ef5a7c91d20
+            errors:
+              title:
+                - Title must be at least 3 characters long.
+              requesterEmail:
+                - Enter a valid email address.
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://api.example.test/problems/internal-error
+            title: Internal server error
+            status: 500
+            detail: An unexpected error occurred. Try again later.
+            instance: /api/requests
+            traceId: 8fa10c37bb45
+
+  schemas:
+    ServiceRequestStatus:
+      type: string
+      description: |
+        Lifecycle state of a request.
+
+        - `OPEN` - logged and awaiting triage
+        - `IN_PROGRESS` - actively being worked on
+        - `RESOLVED` - fix applied, awaiting customer confirmation
+        - `CLOSED` - terminal state, no further changes allowed
+      enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+      example: OPEN
+    ServiceRequestPriority:
+      type: string
+      description: Business impact of the request, ordered from lowest to highest.
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      example: HIGH
+    ServiceRequest:
+      type: object
+      description: A customer service request as stored by the API.
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - description
+        - category
+        - priority
+        - status
+        - requesterName
+        - requesterEmail
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+          description: Server-assigned identifier
+          pattern: '^REQ-[0-9]{4,}$'
+          readOnly: true
+          example: REQ-1001
+        title:
+          type: string
+          description: Short summary shown in list views
+          minLength: 3
+          maxLength: 120
+          example: Unable to access customer portal
+        description:
+          type: string
+          description: Full problem statement
+          minLength: 10
+          maxLength: 2000
+          example: The customer receives "Account locked" after signing in with valid credentials.
+        category:
+          type: string
+          description: Free-text classification, e.g. Access, Billing, Network, Outage
+          minLength: 2
+          maxLength: 50
+          example: Access
+        priority:
+          $ref: '#/components/schemas/ServiceRequestPriority'
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ServiceRequestStatus'
+          description: Set to `OPEN` on creation and changed only through the status endpoint.
+          readOnly: true
+        requesterName:
+          type: string
+          description: Name of the person who raised the request
+          minLength: 2
+          maxLength: 100
+          example: Example Customer
+        requesterEmail:
+          type: string
+          format: email
+          description: Contact address for follow-up
+          maxLength: 254
+          example: customer@example.com
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp (RFC 3339, UTC)
+          readOnly: true
+          example: '2026-02-10T08:15:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last modification (RFC 3339, UTC)
+          readOnly: true
+          example: '2026-02-11T09:05:30Z'
+        version:
+          type: integer
+          format: int32
+          description: Version used for optimistic concurrency control; incremented on every write.
+          minimum: 1
+          readOnly: true
+          example: 4
+    CreateServiceRequest:
+      type: object
+      description: Payload accepted by `POST /requests`.
+      additionalProperties: false
+      required: [title, description, category, priority, requesterName, requesterEmail]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 120
+          example: Unable to access customer portal
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          example: The customer receives "Account locked" after signing in with valid credentials.
+        category:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Access
+        priority:
+          $ref: '#/components/schemas/ServiceRequestPriority'
+        requesterName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Example Customer
+        requesterEmail:
+          type: string
+          format: email
+          maxLength: 254
+          example: customer@example.com
+    UpdateServiceRequestStatus:
+      type: object
+      description: Payload accepted by `PATCH /requests/{requestId}/status`.
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          $ref: '#/components/schemas/ServiceRequestStatus'
+        version:
+          type: integer
+          format: int32
+          description: Version of the request as last read by the client
+          minimum: 1
+          example: 3
+        note:
+          type: string
+          description: Optional comment recorded with the transition
+          maxLength: 500
+          example: Password reset and portal access confirmed with the customer.
+    ServiceRequestPage:
+      type: object
+      description: A single page of service requests.
+      additionalProperties: false
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          description: Requests contained in the current page; empty when nothing matches.
+          items:
+            $ref: '#/components/schemas/ServiceRequest'
+        page:
+          type: integer
+          format: int32
+          description: One-based number of the returned page
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Maximum number of items per page
+          minimum: 1
+          maximum: 100
+          example: 10
+        total:
+          type: integer
+          format: int32
+          description: Total number of records matching the filters
+          minimum: 0
+          example: 42
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages; `0` when there are no matches
+          minimum: 0
+          example: 5
+    ProblemDetails:
+      type: object
+      description: RFC 7807 problem document returned for every error response.
+      additionalProperties: true
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Stable URI identifying the problem type
+          example: https://api.example.test/problems/not-found
+        title:
+          type: string
+          description: Short, human-readable summary safe to display in the UI
+          example: Service request not found
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          minimum: 400
+          maximum: 599
+          example: 404
+        detail:
+          type: string
+          description: Explanation specific to this occurrence
+          example: No service request exists with id REQ-9999.
+        instance:
+          type: string
+          format: uri-reference
+          description: URI of the request that produced the error
+          example: /api/requests/REQ-9999
+        traceId:
+          type: string
+          description: Correlation identifier to quote in support tickets
+          example: b2c4de6f8091
+    ValidationProblemDetails:
+      description: Problem document extended with per-field validation messages.
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: object
+              description: Map of field name to the list of messages for that field
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+              example:
+                title:
+                  - Title must be at least 3 characters long.
+                requesterEmail:
+                  - Enter a valid email address.
