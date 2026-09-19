@@ -24,7 +24,11 @@ import type {
     get isConflict() {
       return this.status === 409;
     }
-  
+
+    get isUnauthenticated() {
+      return this.status === 401;
+    }
+
     isValidation(): this is { problem: ValidationProblemDetails } {
       return this.status === 422 || this.status === 400;
     }
