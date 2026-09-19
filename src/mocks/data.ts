@@ -2,7 +2,7 @@ import type { ServiceRequest } from '../types/serviceRequest';
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
-export const db: Mutable<ServiceRequest>[] = [
+const seed: Mutable<ServiceRequest>[] = [
   {
     id: 'REQ-1001',
     title: 'Unable to access customer portal',
@@ -70,7 +70,15 @@ export const db: Mutable<ServiceRequest>[] = [
   },
 ];
 
+export const db: Mutable<ServiceRequest>[] = seed.map((request) => ({ ...request }));
+
 let nextId = 1006;
 export function generateId(): string {
   return `REQ-${nextId++}`;
+}
+
+export function resetDb(): void {
+  db.length = 0;
+  db.push(...seed.map((request) => ({ ...request })));
+  nextId = 1006;
 }
