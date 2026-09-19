@@ -1,5 +1,6 @@
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import { RequestsListPage } from './pages/RequestsListPage';
+import { RequestDetailPage } from './pages/RequestDetailPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/requests" replace />} />
           <Route path="/requests" element={<RequestsListPage />} />
+          <Route path="/requests/:id" element={<RequestDetailPage />} />
         </Routes>
       </main>
     </div>
