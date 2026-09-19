@@ -29,7 +29,15 @@ import type {
       return this.status === 422 || this.status === 400;
     }
   }
-  
+
+  export function firstFieldErrors(problem: ValidationProblemDetails): Record<string, string> {
+    const errors: Record<string, string> = {};
+    for (const [field, messages] of Object.entries(problem.errors)) {
+      errors[field] = messages[0];
+    }
+    return errors;
+  }
+
   let getAccessToken: () => string | undefined = () => undefined;
   export function setAccessTokenGetter(fn: () => string | undefined) {
     getAccessToken = fn;

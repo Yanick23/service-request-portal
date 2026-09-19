@@ -1,12 +1,22 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { ApiError, serviceRequestApi } from '../api/client';
-import type { ListRequestsParams, ServiceRequestStatus } from '../types/serviceRequest';
+import type {
+  CreateServiceRequestPayload,
+  ListRequestsParams,
+  ServiceRequestStatus,
+} from '../types/serviceRequest';
 
 export function useRequestsQuery(params: ListRequestsParams) {
   return useQuery({
     queryKey: ['requests', params],
     queryFn: () => serviceRequestApi.list(params),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateRequestMutation() {
+  return useMutation({
+    mutationFn: (payload: CreateServiceRequestPayload) => serviceRequestApi.create(payload),
   });
 }
 
