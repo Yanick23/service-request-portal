@@ -1,26 +1,60 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useAuth, hasAuthParams } from 'react-oidc-context';
 import { Button } from '@/components/ui/button';
 import { Alert } from '../components/Alert';
-import { setAccessTokenGetter } from '../api/client';
+import { setAccessTokenGetter, setUnauthorizedHandler } from '../api/client';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  // Guards auth.signinRedirect() against firing twice for the same "not signed in"
+  // state (StrictMode's double effect-invoke, or a 401 arriving while the initial
+  // redirect is still in flight) — reset once sign-in succeeds so a later session
+  // expiry can trigger a fresh redirect.
+  const hasTriedSignin = useRef(false);
 
   useEffect(() => {
     setAccessTokenGetter(() => auth.user?.access_token);
   }, [auth.user]);
 
   useEffect(() => {
-    if (auth.isLoading || auth.isAuthenticated || hasAuthParams() || auth.activeNavigator) return;
+    if (auth.isAuthenticated) hasTriedSignin.current = false;
+  }, [auth.isAuthenticated]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (hasTriedSignin.current) return;
+      hasTriedSignin.current = true;
+      auth.signinRedirect();
+    });
+  }, [auth]);
+
+  useEffect(() => {
+    if (
+      hasTriedSignin.current ||
+      auth.isLoading ||
+      auth.isAuthenticated ||
+      auth.error ||
+      hasAuthParams() ||
+      auth.activeNavigator
+    ) {
+      return;
+    }
+    hasTriedSignin.current = true;
     auth.signinRedirect();
-  }, [auth, auth.isLoading, auth.isAuthenticated, auth.activeNavigator]);
+  }, [auth, auth.isLoading, auth.isAuthenticated, auth.error, auth.activeNavigator]);
 
   if (auth.error) {
     return (
       <div className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 px-4 text-center">
         <Alert variant="danger">Falha na autenticação: {auth.error.message}</Alert>
-        <Button onClick={() => auth.signinRedirect()}>Tentar novamente</Button>
+        <Button
+          onClick={() => {
+            hasTriedSignin.current = false;
+            auth.signinRedirect();
+          }}
+        >
+          Tentar novamente
+        </Button>
       </div>
     );
   }

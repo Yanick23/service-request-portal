@@ -13,14 +13,18 @@ async function enableMocking() {
   return worker.start({ onUnhandledRequest: 'bypass' });
 }
 
-enableMocking().then(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Root />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </StrictMode>,
-  );
-});
+enableMocking()
+  .catch((error) => {
+    console.error('Failed to start the mock API worker, continuing without it.', error);
+  })
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Root />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </StrictMode>,
+    );
+  });

@@ -26,8 +26,13 @@ describe('ApiError', () => {
     expect(new ApiError({ title: 'Conflict', status: 409 }).isConflict).toBe(true);
     expect(new ApiError({ title: 'Not found', status: 404 }).isConflict).toBe(false);
 
-    expect(new ApiError({ title: 'Bad request', status: 400 }).isValidation()).toBe(true);
-    expect(new ApiError({ title: 'Unprocessable', status: 422 }).isValidation()).toBe(true);
+    expect(new ApiError({ title: 'Bad request', status: 400 }).isValidation()).toBe(false);
+    expect(
+      new ApiError({ title: 'Unprocessable', status: 422, errors: {} } as ValidationProblemDetails).isValidation(),
+    ).toBe(true);
+    expect(
+      new ApiError({ title: 'Bad request', status: 400, errors: {} } as ValidationProblemDetails).isValidation(),
+    ).toBe(true);
     expect(new ApiError({ title: 'Not found', status: 404 }).isValidation()).toBe(false);
 
     expect(new ApiError({ title: 'Unauthorized', status: 401 }).isUnauthenticated).toBe(true);

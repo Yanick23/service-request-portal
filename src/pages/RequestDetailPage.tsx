@@ -17,7 +17,7 @@ export function RequestDetailPage() {
   if (isLoading) return <p className="text-muted-foreground">A carregar pedido...</p>;
   if (isError || !request) return <p role="alert">Não foi possível carregar este pedido.</p>;
 
-  const possibleNextStatuses = ALLOWED_TRANSITIONS[request.status];
+  const possibleNextStatuses = ALLOWED_TRANSITIONS[request.status] ?? [];
 
   return (
     <div>

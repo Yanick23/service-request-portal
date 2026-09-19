@@ -30,7 +30,7 @@ import type {
     }
 
     isValidation(): this is { problem: ValidationProblemDetails } {
-      return this.status === 422 || this.status === 400;
+      return (this.status === 422 || this.status === 400) && 'errors' in this.problem;
     }
   }
 
@@ -46,7 +46,12 @@ import type {
   export function setAccessTokenGetter(fn: () => string | undefined) {
     getAccessToken = fn;
   }
-  
+
+  let onUnauthorized: () => void = () => {};
+  export function setUnauthorizedHandler(fn: () => void) {
+    onUnauthorized = fn;
+  }
+
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const token = getAccessToken();
   
@@ -79,6 +84,9 @@ import type {
         title: 'Erro inesperado',
         status: response.status,
       };
+      if (response.status === 401) {
+        onUnauthorized();
+      }
       throw new ApiError(problem);
     }
   

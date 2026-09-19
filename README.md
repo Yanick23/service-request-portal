@@ -55,6 +55,7 @@ src/
 ├── components/  # Shared, presentational UI (StatusBadge, PriorityBadge, Alert, Field)
 │   └── ui/      # shadcn/ui primitives (Button, Input, Select, Table, ...)
 ├── hooks/       # React Query hooks per operation (list/get/create/update-status)
+├── lib/         # cn() helper, shared service-request field validation
 ├── mocks/       # MSW request handlers + in-memory seed data
 ├── pages/       # One component per route; composes hooks + components
 ├── types/       # api.generated.ts (from OpenAPI) + domain types/enums
@@ -75,9 +76,10 @@ to test and reuse.
 - **Node.js 20+** and **npm 10+** — Vite 8's bundler relies on a `node:util` API that isn't in Node
   18. `node -v` / `npm -v` to check.
 - **Git**.
-- An Auth0 (or other OIDC) application, but only if you actually want to sign in against a real
-  provider — see [OIDC provider configuration](#oidc-provider-configuration). You don't need this
-  just to run the app, since the default mock setup fakes sign-in too.
+- An Auth0 (or other OIDC) application. Unlike the API, sign-in isn't mocked — `Root.tsx` refuses to
+  render the app until `VITE_OIDC_AUTHORITY` and `VITE_OIDC_CLIENT_ID` are set, so you'll need at
+  least a free Auth0 tenant to get past the login screen. See
+  [OIDC provider configuration](#oidc-provider-configuration) below.
 
 ### Steps
 
@@ -89,10 +91,10 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:5173`. Out of the box (`VITE_USE_MOCKS=true`) it runs fully mocked, no
-provider or backend needed. If you want to try it against a real Auth0 tenant, fill in
-`VITE_OIDC_AUTHORITY` and `VITE_OIDC_CLIENT_ID` in `.env` (details below), and flip
-`VITE_USE_MOCKS=false` once you've also got a real API for `VITE_API_BASE_URL` to point at.
+Open `http://localhost:5173`. The API is mocked by default (`VITE_USE_MOCKS=true`), so no backend is
+needed — but you do need real Auth0 values in `.env` (`VITE_OIDC_AUTHORITY`, `VITE_OIDC_CLIENT_ID`;
+see below) before the app will get past sign-in, since only the API is faked, not authentication.
+Once you have a real backend, flip `VITE_USE_MOCKS=false` and point `VITE_API_BASE_URL` at it.
 
 Worth running once to make sure everything's in order:
 
@@ -138,8 +140,13 @@ Full list with comments in `.env.example`. Short version:
 pagination/search/filter/sort, get-by-id, create with server-side validation, and a status update
 that does optimistic concurrency via a `version` field (returns `409` on conflict) — against an
 in-memory array in `src/mocks/data.ts`. `main.tsx` only spins up the MSW browser worker when
-`VITE_USE_MOCKS=true`. Tests reuse the exact same handlers through `msw/node`, so what you see in dev
-is what gets tested — there's no separate "test version" of the mock data to keep in sync.
+`VITE_USE_MOCKS=true`, and falls back to rendering without mocks if the worker fails to start rather
+than leaving a blank page. Tests reuse the exact same handlers through `msw/node`, so what you see in
+dev is what gets tested — there's no separate "test version" of the mock data to keep in sync.
+
+The create-request field rules (min/max lengths, email format) live once in
+`src/lib/serviceRequestValidation.ts` and are imported by both the mock's POST handler and the
+`NewRequestPage` form, so client-side and "server-side" validation can't quietly drift apart.
 
 ## Commands
 
@@ -183,7 +190,9 @@ merged.
   rendered anywhere.
 - `.env` is git-ignored; only `.env.example`, with no real values, is committed.
 - The API client tells 401 (not signed in), 409 (conflict) and 422/400 (validation) apart, so the UI
-  can show something meaningful instead of a generic "something went wrong."
+  can show something meaningful instead of a generic "something went wrong." A 401 also triggers
+  `auth.signinRedirect()` (wired up in `AuthGate.tsx`), so a session that expires mid-use sends the
+  user back through login instead of stalling on a dead request.
 
 **Accessibility**
 - Interactive bits (`Select`, `Button`, dialogs) are Radix primitives underneath, which already get
@@ -199,8 +208,6 @@ merged.
   mocked API; there's no Playwright/Cypress suite hitting a real backend.
 - The requests table scrolls horizontally on narrow screens instead of reflowing into cards — at
   375px, two of the five columns need that scroll to reach.
-- A 401 from the mock API just shows as a generic API error rather than kicking off a re-login
-  automatically. Only the initial sign-in is handled, not a token expiring mid-session.
 - The production bundle trips Vite's default 500 kB chunk-size warning. Left as-is since the route
   tree is small and single-purpose — didn't seem worth splitting further for this.
 - Mock data is in-memory only, so it resets on every full page reload.

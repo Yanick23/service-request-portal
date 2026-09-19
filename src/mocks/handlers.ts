@@ -8,7 +8,8 @@ import type {
   UpdateServiceRequestStatusPayload,
   ProblemDetails,
 } from '../types/serviceRequest';
-import { ALLOWED_TRANSITIONS } from '../types/serviceRequest';
+import { ALLOWED_TRANSITIONS, PRIORITY_VALUES } from '../types/serviceRequest';
+import { validateServiceRequestFields } from '../lib/serviceRequestValidation';
 
 const API_BASE = '/api';
 
@@ -54,11 +55,10 @@ export const handlers = [
 
     const field = sort.replace('-', '') as 'createdAt' | 'updatedAt' | 'priority';
     const desc = sort.startsWith('-');
-    const priorityRank = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
     items.sort((a, b) => {
       const cmp =
         field === 'priority'
-          ? priorityRank[a.priority] - priorityRank[b.priority]
+          ? PRIORITY_VALUES.indexOf(a.priority) - PRIORITY_VALUES.indexOf(b.priority)
           : new Date(a[field]).getTime() - new Date(b[field]).getTime();
       return desc ? -cmp : cmp;
     });
@@ -76,15 +76,7 @@ export const handlers = [
     await delay();
     const payload = (await request.json()) as CreateServiceRequestPayload;
 
-    const errors: Record<string, string[]> = {};
-    if (!payload.title || payload.title.length < 3) errors.title = ['Title must be at least 3 characters long.'];
-    if (!payload.description || payload.description.length < 10)
-      errors.description = ['Description must be at least 10 characters long.'];
-    if (!payload.requesterEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.requesterEmail))
-      errors.requesterEmail = ['Enter a valid email address.'];
-    if (!payload.category) errors.category = ['Category is required.'];
-    if (!payload.requesterName || payload.requesterName.length < 2)
-      errors.requesterName = ['Requester name must be at least 2 characters long.'];
+    const errors = validateServiceRequestFields(payload);
 
     if (Object.keys(errors).length > 0) {
       return problem(422, 'Validation failed', 'The submitted service request contains invalid fields.', {

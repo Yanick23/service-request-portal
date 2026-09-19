@@ -2,13 +2,14 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, firstFieldErrors } from '../api/client';
 import { useCreateRequestMutation } from '../hooks/requests';
+import { validateServiceRequestFields } from '../lib/serviceRequestValidation';
 import { Alert } from '../components/Alert';
 import { Field } from '../components/Field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { CreateServiceRequestPayload, ServiceRequestPriority } from '../types/serviceRequest';
+import { PRIORITY_VALUES, PRIORITY_LABELS, type CreateServiceRequestPayload, type ServiceRequestPriority } from '../types/serviceRequest';
 
 type FormState = CreateServiceRequestPayload;
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -17,14 +18,21 @@ const initialState: FormState = {
   title: '', description: '', category: '', priority: 'MEDIUM', requesterName: '', requesterEmail: '',
 };
 
+const FIELD_ERROR_MESSAGES: Record<string, string> = {
+  'Title must be at least 3 characters long.': 'O título deve ter pelo menos 3 caracteres.',
+  'Title must not exceed 120 characters.': 'O título não pode exceder 120 caracteres.',
+  'Description must be at least 10 characters long.': 'A descrição deve ter pelo menos 10 caracteres.',
+  'Category must be at least 2 characters long.': 'A categoria deve ter pelo menos 2 caracteres.',
+  'Requester name must be at least 2 characters long.': 'O nome do requerente deve ter pelo menos 2 caracteres.',
+  'Enter a valid email address.': 'Introduz um email válido.',
+};
+
 function validate(form: FormState): FormErrors {
+  const fieldErrors = validateServiceRequestFields(form);
   const errors: FormErrors = {};
-  if (form.title.trim().length < 3) errors.title = 'O título deve ter pelo menos 3 caracteres.';
-  if (form.title.length > 120) errors.title = 'O título não pode exceder 120 caracteres.';
-  if (form.description.trim().length < 10) errors.description = 'A descrição deve ter pelo menos 10 caracteres.';
-  if (form.category.trim().length < 2) errors.category = 'A categoria é obrigatória.';
-  if (form.requesterName.trim().length < 2) errors.requesterName = 'O nome do requerente é obrigatório.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.requesterEmail)) errors.requesterEmail = 'Introduz um email válido.';
+  for (const [field, messages] of Object.entries(fieldErrors)) {
+    errors[field as keyof FormState] = FIELD_ERROR_MESSAGES[messages[0]] ?? messages[0];
+  }
   return errors;
 }
 
@@ -87,10 +95,9 @@ export function NewRequestPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="LOW">Baixa</SelectItem>
-              <SelectItem value="MEDIUM">Média</SelectItem>
-              <SelectItem value="HIGH">Alta</SelectItem>
-              <SelectItem value="CRITICAL">Crítica</SelectItem>
+              {PRIORITY_VALUES.map((p) => (
+                <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>

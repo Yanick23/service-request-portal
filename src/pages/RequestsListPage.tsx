@@ -8,10 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ServiceRequestStatus, ServiceRequestPriority } from '../types/serviceRequest';
+import { STATUS_VALUES, PRIORITY_VALUES, type ServiceRequestStatus, type ServiceRequestPriority } from '../types/serviceRequest';
 
-const STATUS_OPTIONS: ServiceRequestStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
-const PRIORITY_OPTIONS: ServiceRequestPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const ALL = 'ALL';
 
 export function RequestsListPage() {
@@ -65,7 +63,7 @@ export function RequestsListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Todos os estados</SelectItem>
-            {STATUS_OPTIONS.map((s) => (
+            {STATUS_VALUES.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
@@ -83,7 +81,7 @@ export function RequestsListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Todas as prioridades</SelectItem>
-            {PRIORITY_OPTIONS.map((p) => (
+            {PRIORITY_VALUES.map((p) => (
               <SelectItem key={p} value={p}>{p}</SelectItem>
             ))}
           </SelectContent>
