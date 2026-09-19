@@ -56,9 +56,10 @@ export const handlers = [
     const desc = sort.startsWith('-');
     const priorityRank = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
     items.sort((a, b) => {
-      let cmp = 0;
-      if (field === 'priority') cmp = priorityRank[a.priority] - priorityRank[b.priority];
-      else cmp = new Date(a[field]).getTime() - new Date(b[field]).getTime();
+      const cmp =
+        field === 'priority'
+          ? priorityRank[a.priority] - priorityRank[b.priority]
+          : new Date(a[field]).getTime() - new Date(b[field]).getTime();
       return desc ? -cmp : cmp;
     });
 
