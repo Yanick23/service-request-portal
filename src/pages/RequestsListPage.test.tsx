@@ -10,13 +10,13 @@ describe('RequestsListPage', () => {
   it('lists the seeded requests', async () => {
     renderWithProviders(<RequestsListPage />, { path: '/requests', initialEntries: ['/requests'] });
 
-    expect(await screen.findByText('Unable to access customer portal')).toBeInTheDocument();
-    expect(screen.getByText('Self-service app is down for all users')).toBeInTheDocument();
+    expect(await screen.findAllByText('Unable to access customer portal')).not.toHaveLength(0);
+    expect(screen.getAllByText('Self-service app is down for all users')).not.toHaveLength(0);
   });
 
   it('shows an empty state when no request matches the search', async () => {
     renderWithProviders(<RequestsListPage />, { path: '/requests', initialEntries: ['/requests'] });
-    await screen.findByText('Unable to access customer portal');
+    await screen.findAllByText('Unable to access customer portal');
 
     await userEvent.type(screen.getByPlaceholderText('Pesquisar por título ou requerente'), 'no-such-request');
 

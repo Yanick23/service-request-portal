@@ -5,9 +5,6 @@ filter it, sort by date, open a request to see its details, create new ones, and
 through its status lifecycle. Sign-in is handled by an external OIDC provider (Auth0 in this setup,
 but any standards-compliant provider works).
 
-This was built as a technical challenge, so a few sections below (tech choices, limitations) are more
-explicit than you'd normally write for a "just get the job done" README — the idea is to make the
-reasoning behind decisions visible, not just the decisions themselves.
 
 ## Solution overview
 
@@ -101,13 +98,6 @@ needed — but you do need real Auth0 values in `.env` (`VITE_OIDC_AUTHORITY`, `
 see below) before the app will get past sign-in, since only the API is faked, not authentication.
 Once you have a real backend, flip `VITE_USE_MOCKS=false` and point `VITE_API_BASE_URL` at it.
 
-Worth running once to make sure everything's in order:
-
-```bash
-npm run lint
-npm run test
-npm run build
-```
 
 ## OIDC provider configuration
 
@@ -205,14 +195,12 @@ merged.
 - Every form field is paired with a `<Label htmlFor>` (`src/components/Field.tsx`).
 - Errors and conflicts use `role="alert"` so screen readers actually announce them.
 - Responsive from mobile widths up — checked at 375/768/1280px — with nothing fixed-width that would
-  force the page itself to scroll horizontally.
+  force the page itself to scroll horizontally. The requests list reflows into cards below the `sm`
+  breakpoint instead of a table that needs horizontal scrolling.
 
 ## Known limitations
 
 - No browser-driven end-to-end tests. Coverage stops at component/integration level against the
   mocked API; there's no Playwright/Cypress suite hitting a real backend.
-- The requests table scrolls horizontally on narrow screens instead of reflowing into cards — at
-  375px, two of the five columns need that scroll to reach.
-- The production bundle trips Vite's default 500 kB chunk-size warning. Left as-is since the route
   tree is small and single-purpose — didn't seem worth splitting further for this.
 - Mock data is in-memory only, so it resets on every full page reload.

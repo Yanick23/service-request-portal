@@ -111,7 +111,33 @@ export function RequestsListPage() {
 
       {data && data.items.length > 0 && (
         <>
-          <div className="rounded-lg border">
+          <div className="grid gap-3 sm:hidden">
+            {data.items.map((item) => (
+              <Link
+                key={item.id}
+                to={`/requests/${item.id}`}
+                className="block rounded-lg border p-4 hover:bg-accent"
+              >
+                <p className="font-medium text-primary">{item.title}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <StatusBadge status={item.status} />
+                  <PriorityBadge priority={item.priority} />
+                </div>
+                <dl className="mt-2.5 space-y-1 text-sm text-muted-foreground">
+                  <div className="flex justify-between gap-2">
+                    <dt>Requerente</dt>
+                    <dd>{item.requesterName}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt>Criado em</dt>
+                    <dd>{new Date(item.createdAt).toLocaleDateString('pt-PT')}</dd>
+                  </div>
+                </dl>
+              </Link>
+            ))}
+          </div>
+
+          <div className="hidden rounded-lg border sm:block">
             <Table>
               <TableHeader>
                 <TableRow>
