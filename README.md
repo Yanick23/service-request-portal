@@ -38,9 +38,14 @@ resulting access token rides along on every request to the API.
   API to change something small.
 - **react-oidc-context + oidc-client-ts** for auth. It's a standards-based OIDC/PKCE client, so
   swapping Auth0 for Keycloak or another provider is a matter of changing env vars, not code.
-- **MSW** for mocking. It intercepts real `fetch` calls, which means the same handlers work in the
-  browser during development and in tests under Node — one set of mocks, not two things that can
-  drift apart.
+- **axios** for HTTP, behind a small `HttpClient` interface (`src/api/httpClient.ts`) that
+  `serviceRequestApi` (`src/api/client.ts`) depends on instead of axios directly — interceptors
+  handle attaching the bearer token and mapping failures to `ApiError`, and swapping the transport
+  later (a different library, a test double) means writing a new class, not touching any page or
+  hook.
+- **MSW** for mocking. It intercepts network traffic at the browser/Node level regardless of which
+  HTTP client makes the call, which means the same handlers work in the browser during development
+  and in tests under Node — one set of mocks, not two things that can drift apart.
 - **openapi-typescript** to generate types from the spec, for the reason mentioned above.
 - **Vitest + React Testing Library** for testing — fast, integrates natively with Vite, and RTL
   nudges you toward testing what the user sees rather than implementation details.
@@ -50,7 +55,7 @@ resulting access token rides along on every request to the API.
 
 ```
 src/
-├── api/         # Typed HTTP client (fetch wrapper, ApiError, validation-error mapping)
+├── api/         # httpClient.ts (HttpClient port + axios adapter, ApiError), client.ts (serviceRequestApi)
 ├── auth/        # OIDC wiring: AuthProvider config, AuthGate (loading/error/sign-in states)
 ├── components/  # Shared, presentational UI (StatusBadge, PriorityBadge, Alert, Field)
 │   └── ui/      # shadcn/ui primitives (Button, Input, Select, Table, ...)
@@ -164,7 +169,7 @@ npm run test:watch   # run the test suite in watch mode
 Vitest + React Testing Library, in jsdom, at three levels:
 
 - **Unit** — plain logic, like `ApiError`'s status-based getters and the validation-error mapping
-  (`src/api/client.test.ts`).
+  (`src/api/httpClient.test.ts`).
 - **Component** — shared UI in isolation, e.g. that `StatusBadge`/`PriorityBadge` render the right
   label for every enum value (`src/components/Badge.test.tsx`).
 - **Integration** — whole pages rendered with real React Query and router providers, against an MSW
@@ -186,8 +191,8 @@ merged.
 - Auth uses the OIDC Authorization Code flow with PKCE — no implicit flow, no client secret sitting
   in browser code.
 - The access token lives in memory (`oidc-client-ts`) and only gets attached as a `Bearer` header to
-  outgoing API requests (`setAccessTokenGetter` in `src/api/client.ts`). It's never logged or
-  rendered anywhere.
+  outgoing API requests (`setAccessTokenGetter` in `src/api/httpClient.ts`, applied through an axios
+  request interceptor). It's never logged or rendered anywhere.
 - `.env` is git-ignored; only `.env.example`, with no real values, is committed.
 - The API client tells 401 (not signed in), 409 (conflict) and 422/400 (validation) apart, so the UI
   can show something meaningful instead of a generic "something went wrong." A 401 also triggers

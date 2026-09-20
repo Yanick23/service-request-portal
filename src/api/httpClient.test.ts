@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, firstFieldErrors } from './client';
+import { ApiError, firstFieldErrors } from './httpClient';
 import type { ValidationProblemDetails } from '../types/serviceRequest';
 
 describe('firstFieldErrors', () => {
