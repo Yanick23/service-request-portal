@@ -8,9 +8,7 @@ export interface ServiceRequestFieldInput {
   requesterEmail: string;
 }
 
-// Single source of truth for service-request field rules, so the client-side
-// form and the mock API (standing in for a real backend implementing the same
-// contract) can't drift apart on what counts as valid.
+
 export function validateServiceRequestFields(input: ServiceRequestFieldInput): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
 
