@@ -188,9 +188,14 @@ merged.
 **Security**
 - Auth uses the OIDC Authorization Code flow with PKCE — no implicit flow, no client secret sitting
   in browser code.
-- The access token lives in memory (`oidc-client-ts`) and only gets attached as a `Bearer` header to
-  outgoing API requests (`setAccessTokenGetter` in `src/api/httpClient.ts`, applied through an axios
-  request interceptor). It's never logged or rendered anywhere.
+- The access token lives in `sessionStorage` (`oidc-client-ts`'s default) and only gets attached as a
+  `Bearer` header to outgoing API requests (`setAccessTokenGetter` in `src/api/httpClient.ts`, applied
+  through an axios request interceptor). It's never logged or rendered anywhere.
+  - **Limitation:** like any client-side storage, it's readable by an XSS payload already executing on
+    the page — that script can read the token directly, or just monkeypatch `fetch`/`XMLHttpRequest`
+    before a legitimate request goes out. No client-side storage choice closes that gap; only an
+    `httpOnly` cookie set by a backend (a BFF in front of the SPA) keeps the token out of JavaScript's
+    reach entirely, and that's a bigger architectural change than this project currently makes.
 - `.env` is git-ignored; only `.env.example`, with no real values, is committed.
 - The API client tells 401 (not signed in), 409 (conflict) and 422/400 (validation) apart, so the UI
   can show something meaningful instead of a generic "something went wrong." A 401 also triggers
@@ -212,3 +217,10 @@ merged.
   mocked API; there's no Playwright/Cypress suite hitting a real backend.
   tree is small and single-purpose — didn't seem worth splitting further for this.
 - Mock data is in-memory only, so it resets on every full page reload.
+- The session doesn't survive closing the browser tab/window — `sessionStorage` (where the OIDC token
+  lives, see "Security and accessibility" above) is cleared with it, so reopening the app means signing
+  in again. Switching to `localStorage` would fix that but keeps the token around for longer if the
+  page is ever compromised by XSS; an in-memory store with a `signinSilent()` restore on load would
+  narrow that window back down, at the cost of depending on the IdP's session cookie (and falling back
+  to a full sign-in redirect on browsers that block third-party cookies for a silent iframe renewal,
+  e.g. Safari's ITP).
