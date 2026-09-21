@@ -6,10 +6,6 @@ import { setAccessTokenGetter, setUnauthorizedHandler } from '../api/client';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const auth = useAuth();
-  // Guards auth.signinRedirect() against firing twice for the same "not signed in"
-  // state (StrictMode's double effect-invoke, or a 401 arriving while the initial
-  // redirect is still in flight) — reset once sign-in succeeds so a later session
-  // expiry can trigger a fresh redirect.
   const hasTriedSignin = useRef(false);
 
   useEffect(() => {

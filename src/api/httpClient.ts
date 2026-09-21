@@ -103,8 +103,6 @@ class AxiosHttpClient implements HttpClient {
   }
 }
 
-// Falls back to a path under BASE_URL (not a bare '/api') so the mocked requests
-// stay inside the service worker's registration scope on GitHub Pages — see main.tsx.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? `${import.meta.env.BASE_URL}api`;
 
 export const httpClient: HttpClient = new AxiosHttpClient(API_BASE_URL);

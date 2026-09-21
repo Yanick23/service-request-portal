@@ -16,9 +16,6 @@ export const ALLOWED_TRANSITIONS: Record<ServiceRequestStatus, ServiceRequestSta
   CLOSED: [],
 };
 
-// Canonical value lists: the single source of truth for status/priority order.
-// Filters, forms and the mock API's sort order should all derive from these
-// instead of retyping the enum.
 export const STATUS_VALUES: ServiceRequestStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 export const PRIORITY_VALUES: ServiceRequestPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
