@@ -11,7 +11,9 @@ import type {
 import { ALLOWED_TRANSITIONS, PRIORITY_VALUES } from '../types/serviceRequest';
 import { validateServiceRequestFields } from '../lib/serviceRequestValidation';
 
-const API_BASE = '/api';
+// Wildcard prefix so the same handlers match '/api/...' in dev/tests and
+// '/service-request-portal/api/...' on GitHub Pages, without any env-specific logic.
+const API_BASE = '*/api';
 
 function problem(status: number, title: string, detail: string, extra: Record<string, unknown> = {}) {
   const body: ProblemDetails = {

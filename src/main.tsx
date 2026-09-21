@@ -10,7 +10,13 @@ const queryClient = new QueryClient();
 async function enableMocking() {
   if (import.meta.env.VITE_USE_MOCKS !== 'true') return;
   const { worker } = await import('./mocks/browser');
-  return worker.start({ onUnhandledRequest: 'bypass' });
+  // On GitHub Pages the app (and the worker script) live under /service-request-portal/,
+  // not the domain root — the worker's scope is capped to whatever directory it's
+  // registered from, so it must be pointed at BASE_URL explicitly.
+  return worker.start({
+    onUnhandledRequest: 'bypass',
+    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+  });
 }
 
 enableMocking()
