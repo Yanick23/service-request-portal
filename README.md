@@ -61,7 +61,11 @@ src/
 ├── mocks/       # MSW request handlers + in-memory seed data
 ├── pages/       # One component per route; composes hooks + components
 ├── types/       # api.generated.ts (from OpenAPI) + domain types/enums
-├── test/        # Vitest setup, MSW test server, render helpers
+├── tests/       # All specs, grouped by kind rather than colocated with source
+│   ├── unit/        # Plain functions/classes, no rendering
+│   ├── component/   # A single UI component in isolation, no providers or network
+│   ├── integration/ # Whole pages, real React Query/router providers, MSW-backed network
+│   └── support/     # Vitest setup, MSW test server, render helpers used by the above
 ├── App.tsx      # Routes + app shell (header, sign-out)
 └── Root.tsx     # Auth/query/router provider wiring
 ```
@@ -156,18 +160,22 @@ npm run test:watch   # run the test suite in watch mode
 
 ## Testing strategy
 
-Vitest + React Testing Library, in jsdom, at three levels:
+Vitest + React Testing Library, in jsdom, at three levels, each living under its own folder in
+`src/tests/` instead of sitting next to the source file:
 
-- **Unit** — plain logic, like `ApiError`'s status-based getters and the validation-error mapping
-  (`src/api/httpClient.test.ts`).
+- **Unit** — plain logic, no rendering: `ApiError`'s status-based getters and the validation-error
+  mapping (`src/tests/unit/api/httpClient.test.ts`), and the service-request field rules
+  (`src/tests/unit/requests/serviceRequestValidation.test.ts`).
 - **Component** — shared UI in isolation, e.g. that `StatusBadge`/`PriorityBadge` render the right
-  label for every enum value (`src/components/Badge.test.tsx`).
+  label for every enum value (`src/tests/component/requests/StatusBadge.test.tsx` and
+  `PriorityBadge.test.tsx`).
 - **Integration** — whole pages rendered with real React Query and router providers, against an MSW
   server on the Node side reusing the same handlers as dev. This is where the loading/empty/error/
-  validation states the brief asks for actually get exercised (`src/pages/*.test.tsx`).
+  validation states the brief asks for actually get exercised
+  (`src/tests/integration/requests/*.test.tsx`).
 
-`src/test/setup.ts` starts and stops the MSW server and resets both the DOM and the in-memory mock
-data between tests, so one test can't leak state into the next.
+`src/tests/support/setup.ts` starts and stops the MSW server and resets both the DOM and the
+in-memory mock data between tests, so one test can't leak state into the next.
 
 ## CI
 

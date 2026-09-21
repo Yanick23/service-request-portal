@@ -3,8 +3,8 @@ import { Route } from 'react-router-dom';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useParams } from 'react-router-dom';
-import { renderRoutesWithProviders } from '../test/utils';
-import { NewRequestPage } from './NewRequestPage';
+import { renderRoutesWithProviders } from '../../support/utils';
+import { NewRequestPage } from '../../../pages/NewRequestPage';
 
 function DetailStub() {
   const { id } = useParams<{ id: string }>();

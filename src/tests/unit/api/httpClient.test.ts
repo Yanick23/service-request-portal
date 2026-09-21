@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, firstFieldErrors } from './httpClient';
-import type { ValidationProblemDetails } from '../types/serviceRequest';
+import { ApiError, firstFieldErrors } from '../../../api/httpClient';
+import type { ValidationProblemDetails } from '../../../types/serviceRequest';
 
 describe('firstFieldErrors', () => {
   it('picks the first message for each field', () => {

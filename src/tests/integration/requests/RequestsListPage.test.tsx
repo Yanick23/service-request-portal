@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { server } from '../test/server';
-import { renderWithProviders } from '../test/utils';
-import { RequestsListPage } from './RequestsListPage';
+import { server } from '../../support/server';
+import { renderWithProviders } from '../../support/utils';
+import { RequestsListPage } from '../../../pages/RequestsListPage';
 
 describe('RequestsListPage', () => {
   it('lists the seeded requests', async () => {
