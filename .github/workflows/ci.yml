@@ -57,6 +57,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check required environment variables
+        run: |
+          missing=()
+          [ -z "$VITE_OIDC_AUTHORITY" ] && missing+=(VITE_OIDC_AUTHORITY)
+          [ -z "$VITE_OIDC_CLIENT_ID" ] && missing+=(VITE_OIDC_CLIENT_ID)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required variable(s) in the 'staging' environment: ${missing[*]}. Set them under Settings > Environments > staging > Environment variables."
+            exit 1
+          fi
+        env:
+          VITE_OIDC_AUTHORITY: ${{ vars.VITE_OIDC_AUTHORITY }}
+          VITE_OIDC_CLIENT_ID: ${{ vars.VITE_OIDC_CLIENT_ID }}
+
       - name: Build
         run: npx vite build --base=/service-request-portal/staging/
         env:
@@ -96,6 +109,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check required environment variables
+        run: |
+          missing=()
+          [ -z "$VITE_OIDC_AUTHORITY" ] && missing+=(VITE_OIDC_AUTHORITY)
+          [ -z "$VITE_OIDC_CLIENT_ID" ] && missing+=(VITE_OIDC_CLIENT_ID)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required variable(s) in the 'production' environment: ${missing[*]}. Set them under Settings > Environments > production > Environment variables."
+            exit 1
+          fi
+        env:
+          VITE_OIDC_AUTHORITY: ${{ vars.VITE_OIDC_AUTHORITY }}
+          VITE_OIDC_CLIENT_ID: ${{ vars.VITE_OIDC_CLIENT_ID }}
 
       - name: Build
         run: npx vite build
