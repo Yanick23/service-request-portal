@@ -154,6 +154,16 @@ The create-request field rules (min/max lengths, email format) live once in
 `src/lib/serviceRequestValidation.ts` and are imported by both the mock's POST handler and the
 `NewRequestPage` form, so client-side and "server-side" validation can't quietly drift apart.
 
+**Mocking under a subpath (GitHub Pages):** a Service Worker can only intercept requests within the
+path it's registered from. On GitHub Pages the app lives at `/service-request-portal/`, not the domain
+root, so `main.tsx` registers the worker explicitly at `${BASE_URL}mockServiceWorker.js` (not the
+default `/mockServiceWorker.js`) — otherwise the registration itself fails outright. That alone isn't
+enough: the mocked requests also have to *land* inside that scope, so `httpClient.ts` falls back to
+`${BASE_URL}api` instead of a bare `/api` when `VITE_API_BASE_URL` isn't set. `handlers.ts` matches
+against `*/api/...` (wildcard prefix) rather than a fixed `/api/...`, so the same handler file keeps
+working whether the request path is `/api/requests` (dev, tests) or
+`/service-request-portal/api/requests` (GitHub Pages) — no environment-specific branching needed.
+
 ## Commands
 
 ```bash
@@ -204,6 +214,22 @@ Both deploy jobs build with `vite build` directly (skipping `tsc -b` — `test` 
 the same commit) and push straight to the `gh-pages` branch via `peaceiris/actions-gh-pages`, each into
 its own `destination_dir` (`.` for production, `staging` for staging) with `keep_files: true` — so a
 staging deploy doesn't wipe out production's files on the same branch, and vice versa.
+
+Before building, each deploy job runs a **"Check required environment variables"** step that fails
+fast (with a clear `::error::` message naming the missing variable and where to set it) if
+`VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID` are empty, instead of silently deploying a broken build —
+this is exactly the failure mode that bit us the first time around, when the values had been added as
+environment *secrets* instead of *variables* and the build shipped with auth unconfigured.
+
+After building, each job also copies `dist/index.html` to `dist/404.html`. GitHub Pages is a static
+file host — reloading a client-side route like `/requests` sends a real request for that path, which
+doesn't exist as a file, so Pages 404s. Serving the SPA's own `index.html` for any unmatched path lets
+React Router pick up from `location.pathname` once it loads. **This only fully works for production**:
+GitHub Pages recognizes a single site-wide `404.html` at the branch root, so a deep-linked reload under
+`/staging/...` falls back to the *production* `index.html` instead (wrong `BASE_URL`, wrong router
+`basename`). Navigating inside the app (clicking links, no reload) works fine in both — only a direct
+reload/bookmark on a staging sub-route is affected, and there's no fix for that without different
+hosting per environment.
 
 To make both deploy jobs work, three things need setting up by hand — none of them are files in this
 repo:
