@@ -276,6 +276,4 @@ Neither environment is the domain root, so `vite.config.ts`, `BrowserRouter` and
   mocked API; there's no Playwright/Cypress suite hitting a real backend.
   tree is small and single-purpose — didn't seem worth splitting further for this.
 - Mock data is in-memory only, so it resets on every full page reload.
-- Session doesn't survive closing the tab (`sessionStorage`) — reopening means signing in again.
-  `localStorage` would fix that at the cost of a longer XSS exposure window; in-memory +
-  `signinSilent()` restore is the middle ground, but depends on the IdP's session cookie.
+- Token storage has a security trade-off — see "Security and accessibility" above.
