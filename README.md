@@ -5,6 +5,10 @@ filter it, sort by date, open a request to see its details, create new ones, and
 through its status lifecycle. Sign-in is handled by an external OIDC provider (Auth0 in this setup,
 but any standards-compliant provider works).
 
+**Live:** [production](https://yanick23.github.io/service-request-portal/) ·
+[staging](https://yanick23.github.io/service-request-portal/staging/) — both deploy automatically, see
+[CI/CD](#cicd).
+
 
 ## Solution overview
 
@@ -204,11 +208,11 @@ in-memory mock data between tests, so one test can't leak state into the next.
   never renders `AuthGate`/`Root`, and everything network-shaped goes through MSW (see
   [Testing strategy](#testing-strategy)), so there's nothing environment-specific to inject here.
 - **Staging** — the `deploy-staging` job. Runs on a push to `develop`, only after `test` passes, and
-  publishes to `https://<owner>.github.io/service-request-portal/staging/`. This is the "does it work
-  for real" environment — point its `VITE_*` variables at a staging backend (or leave
-  `VITE_USE_MOCKS=true` if there isn't one yet) before merging into `main`.
+  publishes to [https://yanick23.github.io/service-request-portal/staging/](https://yanick23.github.io/service-request-portal/staging/).
+  This is the "does it work for real" environment — point its `VITE_*` variables at a staging backend
+  (or leave `VITE_USE_MOCKS=true` if there isn't one yet) before merging into `main`.
 - **Production** — the `deploy-production` job. Same shape, triggered by a push to `main`, publishing
-  to the site root (`https://<owner>.github.io/service-request-portal/`).
+  to the site root ([https://yanick23.github.io/service-request-portal/](https://yanick23.github.io/service-request-portal/)).
 
 Both deploy jobs build with `vite build` directly (skipping `tsc -b` — `test` already checked types on
 the same commit) and push straight to the `gh-pages` branch via `peaceiris/actions-gh-pages`, each into
