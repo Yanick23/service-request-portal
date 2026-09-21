@@ -221,9 +221,7 @@ staging deploy doesn't wipe out production's files on the same branch, and vice 
 
 Before building, each deploy job runs a **"Check required environment variables"** step that fails
 fast (with a clear `::error::` message naming the missing variable and where to set it) if
-`VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID` are empty, instead of silently deploying a broken build —
-this is exactly the failure mode that bit us the first time around, when the values had been added as
-environment *secrets* instead of *variables* and the build shipped with auth unconfigured.
+`VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID` are empty, instead of silently deploying a broken build.
 
 After building, each job also copies `dist/index.html` to `dist/404.html`. GitHub Pages is a static
 file host — reloading a client-side route like `/requests` sends a real request for that path, which
