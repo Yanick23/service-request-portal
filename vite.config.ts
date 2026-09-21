@@ -5,7 +5,10 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages serves this app from /service-request-portal/, not the
+  // domain root — only applies to the production build, not `vite dev`.
+  base: command === 'build' ? '/service-request-portal/' : '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -16,4 +19,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/tests/support/setup.ts'],
   },
-})
+}))

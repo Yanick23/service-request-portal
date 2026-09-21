@@ -111,10 +111,17 @@ sits behind it — Keycloak or Okta would work the same way, just different env 
 To set up Auth0:
 
 1. Create an application of type **Single Page Application**.
-2. Under its **Settings**, set these to `http://localhost:5173`:
+2. Under its **Settings**, add both of these (comma-separated) to:
    - Allowed Callback URLs
    - Allowed Logout URLs
    - Allowed Web Origins
+
+   ```
+   http://localhost:5173/, https://<your-github-username>.github.io/service-request-portal/staging/, https://<your-github-username>.github.io/service-request-portal/
+   ```
+
+   Local dev, staging, and production (see [CI/CD](#cicd)) respectively. Note the trailing slash on
+   both GitHub Pages URLs — it's part of `BASE_URL` and the callback won't match without it.
 3. Copy the **Domain** and **Client ID** into your `.env`.
 
 No client secret involved — SPAs use PKCE instead, so there's nothing secret to leak.
@@ -177,11 +184,54 @@ Vitest + React Testing Library, in jsdom, at three levels, each living under its
 `src/tests/support/setup.ts` starts and stops the MSW server and resets both the DOM and the
 in-memory mock data between tests, so one test can't leak state into the next.
 
-## CI
+## CI/CD
 
-`.github/workflows/ci.yml` runs on every push to `main` and on pull requests: install, lint, type
-check (`tsc --noEmit`), test suite, build. If any of those fail, the PR shows it before it gets
-merged.
+`.github/workflows/ci.yml` has three jobs, matching the four environments this app runs in:
+
+- **Development** — local only, never touches CI. `npm run dev` against your own `.env`.
+- **Test** — the `test` job. Runs on every push to `main`/`develop` and on every pull request: install,
+  lint, type check (`tsc -b`), test suite. Doesn't need any of the `VITE_*` env vars — the test suite
+  never renders `AuthGate`/`Root`, and everything network-shaped goes through MSW (see
+  [Testing strategy](#testing-strategy)), so there's nothing environment-specific to inject here.
+- **Staging** — the `deploy-staging` job. Runs on a push to `develop`, only after `test` passes, and
+  publishes to `https://<owner>.github.io/service-request-portal/staging/`. This is the "does it work
+  for real" environment — point its `VITE_*` variables at a staging backend (or leave
+  `VITE_USE_MOCKS=true` if there isn't one yet) before merging into `main`.
+- **Production** — the `deploy-production` job. Same shape, triggered by a push to `main`, publishing
+  to the site root (`https://<owner>.github.io/service-request-portal/`).
+
+Both deploy jobs build with `vite build` directly (skipping `tsc -b` — `test` already checked types on
+the same commit) and push straight to the `gh-pages` branch via `peaceiris/actions-gh-pages`, each into
+its own `destination_dir` (`.` for production, `staging` for staging) with `keep_files: true` — so a
+staging deploy doesn't wipe out production's files on the same branch, and vice versa.
+
+To make both deploy jobs work, three things need setting up by hand — none of them are files in this
+repo:
+
+1. **Repo settings → Pages → Source: "Deploy from a branch"**, branch `gh-pages`, folder `/ (root)`.
+   `peaceiris/actions-gh-pages` creates that branch on its first run if it doesn't exist yet.
+2. **Repo settings → Environments → two new environments, `staging` and `production`**, each with its
+   own copy of these variables (repo **Variables**, not **Secrets** — none of these are actually
+   secret; the client ID and API URL end up in the bundle either way):
+
+   | Variable | Example |
+   |---|---|
+   | `VITE_API_BASE_URL` | `https://api.example.com` |
+   | `VITE_USE_MOCKS` | `false` |
+   | `VITE_OIDC_AUTHORITY` | `https://your-tenant.eu.auth0.com` |
+   | `VITE_OIDC_CLIENT_ID` | your Auth0 SPA client ID — same one for both environments unless you're running separate Auth0 apps per stage |
+   | `VITE_OIDC_SCOPE` | `openid profile email` |
+
+   A GitHub `environment:` per stage also means you can turn on a required-reviewer protection rule on
+   `production` later, without touching the workflow file.
+3. **Auth0** (or whichever OIDC provider) needs the staging callback URL added too — see
+   [OIDC provider configuration](#oidc-provider-configuration).
+
+GitHub Pages serves the production build from `/service-request-portal/` and staging from
+`/service-request-portal/staging/` — neither is the domain root. `vite.config.ts`, `main.tsx`'s
+`BrowserRouter` and the OIDC `redirect_uri` all derive their base path from Vite's `BASE_URL` (which
+the staging build overrides with `vite build --base=...`) instead of hardcoding `/`, so the same code
+works locally, in staging and in production without a build-time branch in the app code itself.
 
 ## Security and accessibility
 

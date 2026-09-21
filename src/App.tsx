@@ -21,7 +21,11 @@ function App() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => auth.signoutRedirect({ post_logout_redirect_uri: window.location.origin })}
+            onClick={() =>
+              auth.signoutRedirect({
+                post_logout_redirect_uri: window.location.origin + import.meta.env.BASE_URL,
+              })
+            }
           >
             Sair
           </Button>

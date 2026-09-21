@@ -8,7 +8,7 @@ export const isOidcConfigured = Boolean(oidcAuthority && oidcClientId);
 export const oidcConfig: AuthProviderProps = {
   authority: oidcAuthority,
   client_id: oidcClientId,
-  redirect_uri: window.location.origin,
+  redirect_uri: window.location.origin + import.meta.env.BASE_URL,
   scope: import.meta.env.VITE_OIDC_SCOPE ?? 'openid profile email',
   onSigninCallback: () => {
     window.history.replaceState({}, document.title, window.location.pathname);
