@@ -158,15 +158,10 @@ The create-request field rules (min/max lengths, email format) live once in
 `src/lib/serviceRequestValidation.ts` and are imported by both the mock's POST handler and the
 `NewRequestPage` form, so client-side and "server-side" validation can't quietly drift apart.
 
-**Mocking under a subpath (GitHub Pages):** a Service Worker can only intercept requests within the
-path it's registered from. On GitHub Pages the app lives at `/service-request-portal/`, not the domain
-root, so `main.tsx` registers the worker explicitly at `${BASE_URL}mockServiceWorker.js` (not the
-default `/mockServiceWorker.js`) — otherwise the registration itself fails outright. That alone isn't
-enough: the mocked requests also have to *land* inside that scope, so `httpClient.ts` falls back to
-`${BASE_URL}api` instead of a bare `/api` when `VITE_API_BASE_URL` isn't set. `handlers.ts` matches
-against `*/api/...` (wildcard prefix) rather than a fixed `/api/...`, so the same handler file keeps
-working whether the request path is `/api/requests` (dev, tests) or
-`/service-request-portal/api/requests` (GitHub Pages) — no environment-specific branching needed.
+**Mocking under a subpath (GitHub Pages):** the Service Worker only intercepts requests inside its
+registration scope. `main.tsx` registers it at `${BASE_URL}mockServiceWorker.js`, `httpClient.ts`
+defaults `API_BASE_URL` to `${BASE_URL}api`, and `handlers.ts` matches `*/api/...` (wildcard) — so the
+same handlers work at `/api/...` locally and `/service-request-portal/api/...` on Pages.
 
 ## Commands
 
@@ -214,52 +209,40 @@ in-memory mock data between tests, so one test can't leak state into the next.
 - **Production** — the `deploy-production` job. Same shape, triggered by a push to `main`, publishing
   to the site root ([https://yanick23.github.io/service-request-portal/](https://yanick23.github.io/service-request-portal/)).
 
-Both deploy jobs build with `vite build` directly (skipping `tsc -b` — `test` already checked types on
-the same commit) and push straight to the `gh-pages` branch via `peaceiris/actions-gh-pages`, each into
-its own `destination_dir` (`.` for production, `staging` for staging) with `keep_files: true` — so a
-staging deploy doesn't wipe out production's files on the same branch, and vice versa.
+Both deploy jobs build directly with `vite build` (skipping `tsc -b`, already done by `test`) and push
+to `gh-pages` via `peaceiris/actions-gh-pages`, each into its own `destination_dir` (`.` / `staging`)
+with `keep_files: true` so they don't overwrite each other.
 
-Before building, each deploy job runs a **"Check required environment variables"** step that fails
-fast (with a clear `::error::` message naming the missing variable and where to set it) if
-`VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID` are empty, instead of silently deploying a broken build.
+Each deploy job checks `VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID` are set before building, and fails
+with a clear message if not.
 
-After building, each job also copies `dist/index.html` to `dist/404.html`. GitHub Pages is a static
-file host — reloading a client-side route like `/requests` sends a real request for that path, which
-doesn't exist as a file, so Pages 404s. Serving the SPA's own `index.html` for any unmatched path lets
-React Router pick up from `location.pathname` once it loads. **This only fully works for production**:
-GitHub Pages recognizes a single site-wide `404.html` at the branch root, so a deep-linked reload under
-`/staging/...` falls back to the *production* `index.html` instead (wrong `BASE_URL`, wrong router
-`basename`). Navigating inside the app (clicking links, no reload) works fine in both — only a direct
-reload/bookmark on a staging sub-route is affected, and there's no fix for that without different
-hosting per environment.
+Each job also copies `dist/index.html` to `dist/404.html`, so reloading a client-side route (e.g.
+`/requests`) doesn't 404 — GitHub Pages serves `404.html` for any unmatched path, and React Router
+picks up from there. **Only works fully in production** — GitHub Pages has one site-wide `404.html`,
+so a reload under `/staging/...` falls back to the production build (wrong base path). In-app
+navigation (no reload) is unaffected in both.
 
 To make both deploy jobs work, three things need setting up by hand — none of them are files in this
 repo:
 
 1. **Repo settings → Pages → Source: "Deploy from a branch"**, branch `gh-pages`, folder `/ (root)`.
    `peaceiris/actions-gh-pages` creates that branch on its first run if it doesn't exist yet.
-2. **Repo settings → Environments → two new environments, `staging` and `production`**, each with its
-   own copy of these variables (repo **Variables**, not **Secrets** — none of these are actually
-   secret; the client ID and API URL end up in the bundle either way):
+2. **Repo settings → Environments** → create `staging` and `production`, each with these
+   **Variables** (not Secrets — nothing here is actually secret):
 
    | Variable | Example |
    |---|---|
    | `VITE_API_BASE_URL` | `https://api.example.com` |
    | `VITE_USE_MOCKS` | `false` |
    | `VITE_OIDC_AUTHORITY` | `https://your-tenant.eu.auth0.com` |
-   | `VITE_OIDC_CLIENT_ID` | your Auth0 SPA client ID — same one for both environments unless you're running separate Auth0 apps per stage |
+   | `VITE_OIDC_CLIENT_ID` | your Auth0 SPA client ID |
    | `VITE_OIDC_SCOPE` | `openid profile email` |
 
-   A GitHub `environment:` per stage also means you can turn on a required-reviewer protection rule on
-   `production` later, without touching the workflow file.
-3. **Auth0** (or whichever OIDC provider) needs the staging callback URL added too — see
+3. **Auth0** needs the staging callback URL added too — see
    [OIDC provider configuration](#oidc-provider-configuration).
 
-GitHub Pages serves the production build from `/service-request-portal/` and staging from
-`/service-request-portal/staging/` — neither is the domain root. `vite.config.ts`, `main.tsx`'s
-`BrowserRouter` and the OIDC `redirect_uri` all derive their base path from Vite's `BASE_URL` (which
-the staging build overrides with `vite build --base=...`) instead of hardcoding `/`, so the same code
-works locally, in staging and in production without a build-time branch in the app code itself.
+Neither environment is the domain root, so `vite.config.ts`, `BrowserRouter` and the OIDC
+`redirect_uri` all derive their base path from `BASE_URL` instead of hardcoding `/`.
 
 ## Security and accessibility
 
@@ -269,11 +252,9 @@ works locally, in staging and in production without a build-time branch in the a
 - The access token lives in `sessionStorage` (`oidc-client-ts`'s default) and only gets attached as a
   `Bearer` header to outgoing API requests (`setAccessTokenGetter` in `src/api/httpClient.ts`, applied
   through an axios request interceptor). It's never logged or rendered anywhere.
-  - **Limitation:** like any client-side storage, it's readable by an XSS payload already executing on
-    the page — that script can read the token directly, or just monkeypatch `fetch`/`XMLHttpRequest`
-    before a legitimate request goes out. No client-side storage choice closes that gap; only an
-    `httpOnly` cookie set by a backend (a BFF in front of the SPA) keeps the token out of JavaScript's
-    reach entirely, and that's a bigger architectural change than this project currently makes.
+  - **Limitation:** readable by an XSS payload already running on the page, like any client-side
+    storage. Closing that gap needs an `httpOnly` cookie from a backend (a BFF), which this project
+    doesn't have.
 - `.env` is git-ignored; only `.env.example`, with no real values, is committed.
 - The API client tells 401 (not signed in), 409 (conflict) and 422/400 (validation) apart, so the UI
   can show something meaningful instead of a generic "something went wrong." A 401 also triggers
@@ -295,10 +276,6 @@ works locally, in staging and in production without a build-time branch in the a
   mocked API; there's no Playwright/Cypress suite hitting a real backend.
   tree is small and single-purpose — didn't seem worth splitting further for this.
 - Mock data is in-memory only, so it resets on every full page reload.
-- The session doesn't survive closing the browser tab/window — `sessionStorage` (where the OIDC token
-  lives, see "Security and accessibility" above) is cleared with it, so reopening the app means signing
-  in again. Switching to `localStorage` would fix that but keeps the token around for longer if the
-  page is ever compromised by XSS; an in-memory store with a `signinSilent()` restore on load would
-  narrow that window back down, at the cost of depending on the IdP's session cookie (and falling back
-  to a full sign-in redirect on browsers that block third-party cookies for a silent iframe renewal,
-  e.g. Safari's ITP).
+- Session doesn't survive closing the tab (`sessionStorage`) — reopening means signing in again.
+  `localStorage` would fix that at the cost of a longer XSS exposure window; in-memory +
+  `signinSilent()` restore is the middle ground, but depends on the IdP's session cookie.
